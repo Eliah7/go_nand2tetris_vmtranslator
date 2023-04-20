@@ -3,6 +3,9 @@ package parser
 import (
 	"bufio"
 	"os"
+	"regexp"
+	"strconv"
+	"strings"
 )
 
 type Parser struct {
@@ -24,6 +27,8 @@ const (
 	C_CALL
 )
 
+var Arithmetic_Commands = []string{"add", "sub", "gt", "lt", "and", "or", "not"}
+
 func MakeParser(file *os.File) Parser {
 	return Parser{
 		inputStream: file,
@@ -31,35 +36,62 @@ func MakeParser(file *os.File) Parser {
 	}
 }
 
-func (parser *Parser) commandType() Command {
-	_ = parser.scanner.Text()
-	// fmt.Println(line)
-	// return line
-	return C_ARITHMETIC // TODO: Get command from file
-}
-
 func (parser *Parser) HasMoreCommands() bool {
-	return parser.scanner.Scan()
-	// return true // return if it has more commands
+	hasMoreCommands := parser.scanner.Scan()
+	line := parser.scanner.Text()
+
+	comments_r, _ := regexp.Compile(`^\/\/\s*[\w\d\s",:=+/.([\])!#$%\^&\*_\-\{\}\|:;"><,.~]*$`) // remove all comments
+	spaces_r, _ := regexp.Compile(`^\s*$`)
+
+	if (spaces_r.MatchString(line) || comments_r.MatchString(line)) && hasMoreCommands { // line is a comment or space
+		return parser.HasMoreCommands()
+	} else {
+		return hasMoreCommands
+	}
 }
 
-func (parser *Parser) Advance() (Command, string, int) {
-	cmd := parser.commandType()
-	arg1 := parser.arg1()
-	arg2 := parser.arg2()
+func (parser *Parser) Advance() (Command, string, interface{}) {
+	line := parser.scanner.Text()
+	line = strings.Split(line, "//")[0]
+	// fmt.Println(line)
 
+	cmd := parser.commandType(line)
+	arg1 := parser.arg1(line)
+	arg2 := parser.arg2(line)
 	return cmd, arg1, arg2
 }
 
-func (parser *Parser) arg1() string {
-	line := parser.scanner.Text()
-	// fmt.Println(line)
-	return line
+func (parser *Parser) commandType(line string) Command {
+	cmps := strings.Split(line, "//")
+	cmds := strings.Split(cmps[0], " ")
+
+	if cmds[0] == "pop" {
+		return C_POP
+	} else if cmds[0] == "push" {
+		return C_PUSH
+	} else { // TODO: Add other commands as they are needed
+		return C_ARITHMETIC
+	}
 }
 
-func (parser *Parser) arg2() int {
-	_ = parser.scanner.Text()
-	// fmt.Println(line)
-	// return line
-	return 0
+func (parser *Parser) arg1(line string) string {
+	cmps := strings.Split(line, "//")
+	cmds := strings.Split(cmps[0], " ")
+	if len(cmds) > 1 {
+		return cmds[1]
+	}
+	return cmds[0]
+}
+
+func (parser *Parser) arg2(line string) interface{} {
+	cmps := strings.Split(line, "//")
+	cmds := strings.Split(cmps[0], " ")
+	if len(cmds) > 2 {
+		arg2, err := strconv.Atoi(cmds[2])
+		if err != nil {
+			panic("Could not convert arg2 to string")
+		}
+		return arg2
+	}
+	return nil
 }

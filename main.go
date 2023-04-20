@@ -23,18 +23,25 @@ func main() {
 	defer f.Close()
 	parser := p.MakeParser(f)
 
-	file_path := fmt.Sprintf("%s%s", f.Name()[0:len(f.Name())-2], "asm")
+	filePath := fmt.Sprintf("%s%s", f.Name()[0:len(f.Name())-2], "asm")
 
-	output_file, err := os.Create(file_path)
+	outputFile, err := os.Create(filePath)
 	if err != nil {
 		panic("Failed to create output file")
 	}
 
-	defer output_file.Close()
-	// _ = p.MakeCodeWriter(output_file) // code_writer
+	defer outputFile.Close()
+	codeWriter := p.MakeCodeWriter(outputFile) // code_writer
 
 	for parser.HasMoreCommands() {
-		parser.Advance()
+		command, arg1, arg2 := parser.Advance()
+
+		if command == p.C_ARITHMETIC {
+			codeWriter.WriteArithmetic(arg1)
+		} else if command == p.C_PUSH || command == p.C_POP {
+			codeWriter.WritePushPop(command, arg1, arg2.(int))
+		}
+
 	}
 
 }
