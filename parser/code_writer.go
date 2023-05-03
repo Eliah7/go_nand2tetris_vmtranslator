@@ -78,7 +78,7 @@ func (codeWriter *CodeWriter) writePushPopSegmentI(cmd Command, segment string, 
 	switch cmd {
 	case C_PUSH:
 		{
-			pushI := fmt.Sprintf("@%s\nA=M+%d\nD=A\n@R15\nM=D\n", memorySegmentBaseAddress[segment], index) +
+			pushI := fmt.Sprintf("@%d\nD=A\n@%s\nA=D+M\nD=A\n@R15\nM=D\n", index, memorySegmentBaseAddress[segment]) +
 				vmToAssembly["*SP"] + "@R15\nA=M\nM=D\n" + vmToAssembly["SP++"]
 
 			codeWriter.outputFile.WriteString(fmt.Sprintf("// push %s %d\n", segment, index))
@@ -86,7 +86,7 @@ func (codeWriter *CodeWriter) writePushPopSegmentI(cmd Command, segment string, 
 		}
 	case C_POP:
 		{
-			popI := fmt.Sprintf("@%s\nA=M+%d\nD=A\n@R15\nM=D\n", memorySegmentBaseAddress[segment], index) + vmToAssembly["SP--"] +
+			popI := fmt.Sprintf("@%d\nD=A\n@%s\nA=D+M\nD=A\n@R15\nM=D\n", index, memorySegmentBaseAddress[segment]) + vmToAssembly["SP--"] +
 				vmToAssembly["*SP"] + "@R15\nA=M\nM=D\n"
 
 			codeWriter.outputFile.WriteString(fmt.Sprintf("// pop %s %d\n", segment, index))
@@ -99,7 +99,7 @@ func (codeWriter *CodeWriter) writePushPopConstant(cmd Command, segment string, 
 	switch cmd {
 	case C_PUSH:
 		{
-			pushConst := fmt.Sprintf("@SP\nA=M\nM=%d\n", index) + vmToAssembly["SP++"]
+			pushConst := fmt.Sprintf("@%d\nD=A\n@SP\nA=M\nM=D\n", index) + vmToAssembly["SP++"]
 
 			codeWriter.outputFile.WriteString(fmt.Sprintf("// push %s %d\n", segment, index))
 			codeWriter.outputFile.WriteString(pushConst)
@@ -144,14 +144,14 @@ func (codeWriter *CodeWriter) writePushPopTemp(cmd Command, segment string, inde
 	switch cmd {
 	case C_PUSH:
 		{
-			pushI := fmt.Sprintf("@5\nA=A+%d\nD=M\n@SP\nA=M\nM=D\n", index) + vmToAssembly["SP++"]
+			pushI := fmt.Sprintf("@%d\nD=A\n@5\nA=D+A\nD=M\n@SP\nA=M\nM=D\n", index) + vmToAssembly["SP++"]
 
 			codeWriter.outputFile.WriteString(fmt.Sprintf("// push %s %d\n", segment, index))
 			codeWriter.outputFile.WriteString(pushI)
 		}
 	case C_POP:
 		{
-			popI := vmToAssembly["SP--"] + vmToAssembly["*SP"] + fmt.Sprintf("@5\nA=A+%d\nM=D\n", index)
+			popI := fmt.Sprintf("@%d\nD=A\n@5\nA=D+A\n@R15\nM=A\n", index) + vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R15\nA=M\nM=D\n"
 
 			codeWriter.outputFile.WriteString(fmt.Sprintf("// pop %s %d\n", segment, index))
 			codeWriter.outputFile.WriteString(popI)
