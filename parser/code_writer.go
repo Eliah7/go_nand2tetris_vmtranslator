@@ -11,6 +11,7 @@ import (
 type CodeWriter struct {
 	outputFile *os.File
 	scanner    *bufio.Scanner
+	boolCount  int
 }
 
 var arithmeticOpMap = map[string]string{
@@ -35,6 +36,7 @@ func MakeCodeWriter(output_file *os.File) CodeWriter {
 	codeWriter := CodeWriter{
 		outputFile: output_file,
 		scanner:    bufio.NewScanner(output_file),
+		boolCount:  0,
 	}
 
 	// initialize base addresses and stack pointer
@@ -48,16 +50,55 @@ func MakeCodeWriter(output_file *os.File) CodeWriter {
 }
 
 func (codeWriter *CodeWriter) WriteArithmetic(cmd string) {
-	op, ok := arithmeticOpMap[cmd] // TODO: Implement logical operators
-	if !ok {
-		panic("Operation is not add or sub")
+	// op, ok := arithmeticOpMap[cmd] // TODO: Implement logical operators and other arithmetic operators
+	// if !ok {
+	// 	panic("Operation is not add or sub")
+	// }
+	var assemblyInstructions string
+	// fmt.Println(cmd)
+	if cmd == "add" {
+		assemblyInstructions = vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\nM=D\n" +
+			vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\nD=M" + "+" + "D\n" +
+			"@SP\nA=M\nM=D\n" + vmToAssembly["SP++"]
+	} else if cmd == "sub" {
+		assemblyInstructions = vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\nM=D\n" +
+			vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\nD=D" + "-" + "M\n" +
+			"@SP\nA=M\nM=D\n" + vmToAssembly["SP++"]
+	} else if cmd == "or" {
+		assemblyInstructions = vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\nM=D\n" +
+			vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\nD=D" + "|" + "M\n" +
+			"@SP\nA=M\nM=D\n" + vmToAssembly["SP++"]
+	} else if cmd == "and" {
+		assemblyInstructions = vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\nM=D\n" +
+			vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\nD=D" + "&" + "M\n" +
+			"@SP\nA=M\nM=D\n" + vmToAssembly["SP++"]
+	} else if cmd == "eq" {
+		assemblyInstructions = vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\nM=D\n" +
+			vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\n" +
+			fmt.Sprintf("D=D-M\n@IS_TRUE_%d\nD;JEQ\n", codeWriter.boolCount) +
+			fmt.Sprintf("@IS_FALSE_%d\nD;JNE\n", codeWriter.boolCount) +
+			fmt.Sprintf("(IS_TRUE_%[1]d)\n@SP\nA=M\nM=-1\n@END_%[1]d\n0;JMP\n(IS_FALSE_%[1]d)\n@SP\nA=M\nM=0\n@END_%[1]d\n0;JMP\n(END_%[1]d)\n", codeWriter.boolCount) + vmToAssembly["SP++"]
+	} else if cmd == "gt" {
+		assemblyInstructions = vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\nM=D\n" +
+			vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\n" +
+			fmt.Sprintf("D=D-M\n@IS_TRUE_%d\nD;JGT\n", codeWriter.boolCount) +
+			fmt.Sprintf("@IS_FALSE_%d\nD;JLE\n", codeWriter.boolCount) +
+			fmt.Sprintf("(IS_TRUE_%[1]d)\n@SP\nA=M\nM=-1\n@END_%[1]d\n0;JMP\n(IS_FALSE_%[1]d)\n@SP\nA=M\nM=0\n@END_%[1]d\n0;JMP\n(END_%[1]d)\n", codeWriter.boolCount) + vmToAssembly["SP++"]
+	} else if cmd == "lt" {
+		assemblyInstructions = vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\nM=D\n" +
+			vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\n" +
+			fmt.Sprintf("D=D-M\n@IS_TRUE_%[1]d\nD;JLT\n", codeWriter.boolCount) +
+			fmt.Sprintf("@IS_FALSE_%[1]d\nD;JGE\n", codeWriter.boolCount) +
+			fmt.Sprintf("(IS_TRUE_%[1]d)\n@SP\nA=M\nM=-1\n@END_%[1]d\n0;JMP\n(IS_FALSE_%[1]d)\n@SP\nA=M\nM=0\n@END_%[1]d\n0;JMP\n(END_%[1]d)\n", codeWriter.boolCount) + vmToAssembly["SP++"]
+	} else if cmd == "not" {
+		assemblyInstructions = vmToAssembly["SP--"] + vmToAssembly["*SP"] + "M=!M\n" + vmToAssembly["SP++"]
+	} else if cmd == "neg" {
+		assemblyInstructions = vmToAssembly["SP--"] + vmToAssembly["*SP"] + "M=-M\n" + vmToAssembly["SP++"]
 	}
-	assemblyInstructions := vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\nM=D\n" +
-		vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R13\nD=M" + op + "D\n" +
-		"@SP\nA=M\nM=D\n" + vmToAssembly["SP++"]
 
 	codeWriter.outputFile.WriteString("// " + cmd + "\n")
 	codeWriter.outputFile.WriteString(assemblyInstructions)
+	codeWriter.boolCount += 1
 }
 
 func (codeWriter *CodeWriter) WritePushPop(cmd Command, segment string, index int) {
@@ -78,17 +119,16 @@ func (codeWriter *CodeWriter) writePushPopSegmentI(cmd Command, segment string, 
 	switch cmd {
 	case C_PUSH:
 		{
-			pushI := fmt.Sprintf("@%d\nD=A\n@%s\nA=D+M\nD=A\n@R15\nM=D\n", index, memorySegmentBaseAddress[segment]) +
-				vmToAssembly["*SP"] + "@R15\nA=M\nM=D\n" + vmToAssembly["SP++"]
+			pushI := fmt.Sprintf("@%d\nD=A\n@%s\nA=D+M\nD=M\n", index, memorySegmentBaseAddress[segment]) + "@SP\nA=M\nM=D\n" + vmToAssembly["SP++"]
 
 			codeWriter.outputFile.WriteString(fmt.Sprintf("// push %s %d\n", segment, index))
 			codeWriter.outputFile.WriteString(pushI)
 		}
 	case C_POP:
 		{
-			popI := fmt.Sprintf("@%d\nD=A\n@%s\nA=D+M\nD=A\n@R15\nM=D\n", index, memorySegmentBaseAddress[segment]) + vmToAssembly["SP--"] +
-				vmToAssembly["*SP"] + "@R15\nA=M\nM=D\n"
-
+			popI := vmToAssembly["SP--"] +
+				fmt.Sprintf("@%d\nD=A\n@%s\nA=D+M\nD=A\n@R14\nM=D\n", index, memorySegmentBaseAddress[segment]) + // @%d\nD=A\n@%s\nA=D+M\nD=A\n@R15\nM=D\n + "@R15\nA=M\nM=D\n"
+				vmToAssembly["*SP"] + "@R14\nA=M\nM=D\n"
 			codeWriter.outputFile.WriteString(fmt.Sprintf("// pop %s %d\n", segment, index))
 			codeWriter.outputFile.WriteString(popI)
 		}
@@ -151,7 +191,7 @@ func (codeWriter *CodeWriter) writePushPopTemp(cmd Command, segment string, inde
 		}
 	case C_POP:
 		{
-			popI := fmt.Sprintf("@%d\nD=A\n@5\nA=D+A\n@R15\nM=A\n", index) + vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R15\nA=M\nM=D\n"
+			popI := fmt.Sprintf("@%d\nD=A\n@5\nD=D+A\n@R15\nM=D\n", index) + vmToAssembly["SP--"] + vmToAssembly["*SP"] + "@R15\nA=M\nM=D\n"
 
 			codeWriter.outputFile.WriteString(fmt.Sprintf("// pop %s %d\n", segment, index))
 			codeWriter.outputFile.WriteString(popI)
