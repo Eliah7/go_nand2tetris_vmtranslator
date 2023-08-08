@@ -40,8 +40,10 @@ func main() {
 			codeWriter.WriteArithmetic(arg1)
 		} else if command == p.C_PUSH || command == p.C_POP {
 			codeWriter.WritePushPop(command, arg1, arg2.(int))
+		} else if command == p.C_LABEL {
+			fmt.Println(command, arg1, arg2)
+			// codeWriter.WriteLabel(arg1)
 		}
-
 	}
 
 }

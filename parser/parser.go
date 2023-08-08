@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"regexp"
 	"strconv"
@@ -86,7 +87,9 @@ func (parser *Parser) arg1(line string) string {
 func (parser *Parser) arg2(line string) interface{} {
 	cmps := strings.Split(line, "//")
 	cmds := strings.Split(cmps[0], " ")
+
 	if len(cmds) > 2 {
+		fmt.Println(cmps, " ", cmds[2])
 		arg2, err := strconv.Atoi(cmds[2])
 		if err != nil {
 			panic("Could not convert arg2 to string")

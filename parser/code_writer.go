@@ -224,3 +224,8 @@ func (codeWriter *CodeWriter) writePushPopPointer(cmd Command, segment string, i
 		}
 	}
 }
+
+func (codeWriter *CodeWriter) WriteLabel(label string) {
+	fmt.Println(label)
+	codeWriter.outputFile.WriteString(fmt.Sprint("(%s)", label))
+}
