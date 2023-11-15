@@ -225,6 +225,14 @@ func (codeWriter *CodeWriter) writePushPopPointer(cmd Command, segment string, i
 	}
 }
 
+func setFileName(filename string) {
+
+}
+
+func writeInit() {
+
+}
+
 func (codeWriter *CodeWriter) WriteLabel(label string) {
 	fmt.Println(label)
 	codeWriter.outputFile.WriteString(fmt.Sprint("(%s)", label))

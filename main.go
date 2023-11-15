@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	p "vmtranlater/parser"
 )
 
@@ -13,8 +14,34 @@ func main() {
 		panic("Specify the Instructions source file")
 	}
 
-	instructionsFilePath := os.Args[1]
-	f, err := os.Open(instructionsFilePath)
+	directoryPath := os.Args[1]
+	entries, err := os.ReadDir(directoryPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var vmFiles []string
+	for _, e := range entries {
+		extension := path.Ext(e.Name())
+		if extension == ".vm" {
+			vmFiles = append(vmFiles, fmt.Sprintf("%s%s", directoryPath, e.Name()))
+		}
+
+	}
+
+	// fmt.Println(vmFiles)
+
+	// convert everything below here to a function
+	// if the input path is a directory then iterate across all files and
+	// execute the function
+	for _, file_ := range vmFiles {
+		translateFile(file_)
+	}
+
+}
+
+func translateFile(file string) {
+	f, err := os.Open(file)
 
 	if err != nil {
 		log.Fatal(err)
@@ -41,9 +68,8 @@ func main() {
 		} else if command == p.C_PUSH || command == p.C_POP {
 			codeWriter.WritePushPop(command, arg1, arg2.(int))
 		} else if command == p.C_LABEL {
-			fmt.Println(command, arg1, arg2)
-			// codeWriter.WriteLabel(arg1)
+			// fmt.Println(command, arg1, arg2)
+			codeWriter.WriteLabel(arg1)
 		}
 	}
-
 }
